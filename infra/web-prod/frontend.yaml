@@ -1,0 +1,84 @@
+# Phase 7 — the kolchurin.dev frontend (SvelteKit SSR), production.
+# Namespace `web-prod`: app=web, env=prod (the domain lives in the Ingress host,
+# NOT the namespace name — avoids the kolchurin.dev/"-dev" conflation).
+#
+# Image is pulled from private GHCR via the `ghcr-pull` Secret, created imperatively
+# (it holds credentials, so it is NOT in this file):
+#   kubectl create secret docker-registry ghcr-pull -n web-prod \
+#     --docker-server=ghcr.io --docker-username=kolchurinvv \
+#     --docker-password=<read:packages PAT> --docker-email=vladimir@kolchurin.dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: web-prod
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: web-prod
+  labels: { app: frontend }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: frontend
+          image: ghcr.io/kolchurinvv/kolchurin.dev/frontend:latest
+          imagePullPolicy: Always          # :latest is mutable; re-pull on restart
+          ports:
+            - containerPort: 3000
+              name: http
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 512Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 3000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: 3000 }
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: web-prod
+spec:
+  selector: { app: frontend }
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+# Routes kolchurin.dev -> frontend over HTTPS. No tls.secretName: Traefik serves
+# the wildcard from the default TLS store we set up in Phase 6.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+  namespace: web-prod
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  rules:
+    - host: kolchurin.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000

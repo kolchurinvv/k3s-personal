@@ -1,0 +1,28 @@
+# cert-manager Helm values — chart: jetstack/cert-manager
+# Installed into namespace `cert-manager`. CRDs managed by the release.
+
+crds:
+  enabled: true   # install + manage the cert-manager CRDs with this release
+  keep: true      # don't delete CRDs (and issued certs) on `helm uninstall`
+
+# Small cluster — modest requests across the three components.
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+
+webhook:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+cainjector:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+# Prometheus ServiceMonitor comes later (Phase 9, once kube-prometheus-stack exists).
+prometheus:
+  enabled: false

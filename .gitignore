@@ -1,0 +1,16 @@
+# --- Secrets & backup artifacts — NEVER commit ---
+backups/
+pihole.toml
+*.env
+.env.*
+*-env.txt
+*.token
+*.key
+*.pem
+kubeconfig*
+*secret*.yaml
+*secret*.yml
+
+# --- Helm / k8s noise ---
+charts/*.tgz
+*.tmp

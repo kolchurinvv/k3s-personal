@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tar tzf *)",
+      "Bash(gh api *)",
+      "Bash(gh run *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m ' *)",
+      "Bash(grep -rInE 'token|secret|password|api[_-]?key|ghp_|eyJ|[A-Za-z0-9_/+]{40,}' .claude)"
+    ]
+  }
+}

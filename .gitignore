@@ -14,6 +14,3 @@ kubeconfig*
 # --- Helm / k8s noise ---
 charts/*.tgz
 *.tmp
-
-# --- Local tooling config (machine-specific) ---
-.claude/

@@ -5,7 +5,22 @@
 
 ---
 
-## ⏯️ CURRENT STATUS — pick up here (last worked 2026-06-09)
+## 🎓 Learning mode (added 2026-06-28) — READ FIRST
+
+Phases 6 and 7 were **speed-run on 2026-06-28**: the agent directed each step and I
+executed, and `kolchurin.dev` went live — but I leaned on the agent to *understand* it.
+Honest self-assessment: told "now do this again for a different front-end app, no help,"
+I could not yet. **That unaided ability is the actual goal of this project.**
+
+New working agreement from here:
+- The **coding-teacher** sets concrete **tasks / exercises** (e.g. "write the Ingress for a
+  new app from scratch", "issue a cert for a new subdomain", "diagnose this broken pod").
+- The **main agent gives NO extra help** — no pastable commands, no writing my manifests,
+  no step-by-step walkthroughs. It may verify my work, confirm correctness, and point me at
+  docs — nothing more.
+- **Done = I can stand up a new front-end app on this cluster end-to-end, unaided.**
+
+## ⏯️ CURRENT STATUS — pick up here (last worked 2026-06-28)
 
 **Done:**
 - **Phase 0** — `webui.db` (159 MB, 109 chats) backed up to `~/backups/`. Pihole config inventoried: 2 adlists (StevenBlack + kboghdady youtube), no custom DNS/CNAMEs; `pihole.toml` saved.
@@ -18,7 +33,7 @@
 - **Phase 4 — Neon Postgres DONE ✅** (done early, out of order). Project created, `litellm` db, pooled connection string saved **local-only** (becomes a k8s Secret in Phase 8 — NOT in git). Neon Auth left OFF. Region eu-central-1. Free tier auto-suspends ~5 min idle (cold-start latency, harmless).
 - **Tooling** — `~/.config/nushell/cf.nu` (native-`http` Cloudflare DNS: `cf-dns add/list/rm`). Token `~/.config/cloudflare/token` (Zone:DNS:Edit — reused by cert-manager + Pulumi).
 
-**Next action — Phase 6: Ingress + cert-manager.**
+**Phases 6 & 7 — DONE 2026-06-28** (Traefik ingress + cert-manager wildcard TLS; `kolchurin.dev` frontend live on k8s — commits `371e8e6` / `d839c0d`; manifests in `infra/traefik`, `infra/cert-manager`, `infra/web-prod`). Further work proceeds under **🎓 Learning mode** above. The steps below are kept as the as-built record of how Phase 6 was done:
 1. Helm-install our own **Traefik** on **ovh-s1** (`hostNetwork: true`, nodeSelector ovh-s1) so it binds ovh-s1's public 80/443 — where `*.kolchurin.dev` points.
 2. Install **cert-manager** + a Cloudflare **DNS-01 `ClusterIssuer`** (reuse the `cf.nu` token as a Secret).
 3. Wildcard `Certificate` for `*.kolchurin.dev` (+ `*.preview.kolchurin.dev`).

@@ -1,0 +1,54 @@
+# Traefik Helm values — chart: traefik/traefik
+# Our own ingress controller (k3s' bundled Traefik was disabled at cluster install).
+# Phase 6 of docs/migration-plan.md.
+#
+# Pinned to ovh-s1 with hostNetwork so Traefik binds ovh-s1's PUBLIC ports 80/443 —
+# the node *.kolchurin.dev DNS points at (135.125.237.68).
+
+deployment:
+  kind: Deployment
+  replicas: 1
+  # A hostNetwork pod otherwise resolves DNS via the host; this keeps cluster
+  # DNS working too (harmless, and correct for hostNetwork).
+  dnsPolicy: ClusterFirstWithHostNet
+
+# Bind ovh-s1's real network interface instead of an internal pod IP.
+hostNetwork: true
+
+# DNS for *.kolchurin.dev resolves ONLY to ovh-s1 — Traefik must run there,
+# or the ports open on the wrong machine.
+nodeSelector:
+  kubernetes.io/hostname: ovh-s1
+
+# With hostNetwork, Traefik binds the *container* port directly on the host.
+# Chart defaults are 8000/8443; override to the real 80/443.
+ports:
+  web:
+    port: 80
+  websecure:
+    port: 443
+
+# Bind the privileged ports 80/443 as root with ONLY NET_BIND_SERVICE.
+# Non-root + NET_BIND_SERVICE does NOT work here: on the setuid-to-65532
+# transition the kernel clears NET_BIND_SERVICE from the *effective* set
+# (k8s securityContext can't set ambient caps), so bind(443) -> EACCES.
+# Running as root keeps the cap effective. (Dropping ALL must still re-add
+# NET_BIND_SERVICE, or even root can't bind < 1024.)
+securityContext:
+  capabilities:
+    add:
+      - NET_BIND_SERVICE
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsGroup: 0
+  runAsNonRoot: false
+  runAsUser: 0
+
+# servicelb is disabled in this cluster, so there is no LoadBalancer provider —
+# the chart default (LoadBalancer) would hang at EXTERNAL-IP <pending> forever.
+# Ingress traffic bypasses the Service entirely (host -> pod), so ClusterIP is
+# all we need.
+service:
+  spec:
+    type: ClusterIP

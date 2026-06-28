@@ -1,0 +1,21 @@
+# Wildcard cert for the whole zone, issued via DNS-01 (Cloudflare).
+# Lives in the `traefik` namespace so it can back Traefik's *default* TLS store
+# (next step) — one cert served for every *.kolchurin.dev route, any namespace.
+#
+# Note: a wildcard is single-label, so `*.kolchurin.dev` does NOT cover
+# `foo.preview.kolchurin.dev`; the extra `*.preview.kolchurin.dev` SAN handles
+# the PR preview hosts (Phase 7).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-kolchurin-dev
+  namespace: traefik
+spec:
+  secretName: wildcard-kolchurin-dev-tls    # cert-manager writes the signed cert here
+  issuerRef:
+    name: letsencrypt-cloudflare
+    kind: ClusterIssuer
+  dnsNames:
+    - "kolchurin.dev"
+    - "*.kolchurin.dev"
+    - "*.preview.kolchurin.dev"

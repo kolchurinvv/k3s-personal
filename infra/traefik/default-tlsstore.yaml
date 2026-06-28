@@ -1,0 +1,15 @@
+# Traefik's DEFAULT TLS store. A TLSStore named `default` in Traefik's namespace
+# sets the certificate Traefik serves for any websecure (TLS) route that doesn't
+# have a more specific cert. Pointing it at the wildcard Secret means every
+# *.kolchurin.dev host gets the wildcard cert automatically — no per-Ingress TLS.
+#
+# The referenced Secret must live in THIS namespace (traefik) — which is exactly
+# where the wildcard Certificate writes wildcard-kolchurin-dev-tls.
+apiVersion: traefik.io/v1alpha1
+kind: TLSStore
+metadata:
+  name: default
+  namespace: traefik
+spec:
+  defaultCertificate:
+    secretName: wildcard-kolchurin-dev-tls

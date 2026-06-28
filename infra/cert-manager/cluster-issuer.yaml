@@ -1,0 +1,23 @@
+# Let's Encrypt (production) ClusterIssuer using Cloudflare DNS-01.
+# DNS-01 (TXT record via the Cloudflare API) is what lets us issue a *wildcard*
+# cert for *.kolchurin.dev — HTTP-01 cannot do wildcards.
+#
+# The Cloudflare API token is NOT in this file: it lives in the Secret
+# `cloudflare-api-token` (key `api-token`) in the cert-manager namespace,
+# created imperatively from ~/.config/cloudflare/token (Zone:DNS:Edit).
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-cloudflare
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: vladimir@kolchurin.dev       # project-wide contact; LE sends expiry/renewal notices here
+    privateKeySecretRef:
+      name: letsencrypt-cloudflare-account-key   # cert-manager creates/stores the ACME account key here
+    solvers:
+      - dns01:
+          cloudflare:
+            apiTokenSecretRef:
+              name: cloudflare-api-token
+              key: api-token

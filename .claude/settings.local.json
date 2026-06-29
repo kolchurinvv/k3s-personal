@@ -6,7 +6,11 @@
       "Bash(gh run *)",
       "Bash(git add *)",
       "Bash(git commit -q -m ' *)",
-      "Bash(grep -rInE 'token|secret|password|api[_-]?key|ghp_|eyJ|[A-Za-z0-9_/+]{40,}' .claude)"
+      "Bash(grep -rInE 'token|secret|password|api[_-]?key|ghp_|eyJ|[A-Za-z0-9_/+]{40,}' .claude)",
+      "Bash(command -v nu)",
+      "Bash(nu --version)",
+      "Bash(grep -nEi 'better-auth-secret-val=|password|BEGIN |[A-Za-z0-9+/]{40,}={0,2}' infra/tools-prod/icp.yaml)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

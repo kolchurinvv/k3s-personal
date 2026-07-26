@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: web-preview
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-preview
+  namespace: web-preview
+  labels: { app: front-end-preview }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: front-end-preview }
+  template:
+    metadata:
+      labels: { app: front-end-preview }
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: front-end-preview
+          image: ghcr.io/kolchurinvv/kolchurin.dev/frontend:preview-ai-feat-bento-dragon-warning
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 512Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 3000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: 3000 }
+            initialDelaySeconds: 15
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-end-preview
+  namespace: web-preview
+spec:
+  selector: { app: front-end-preview }
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-preview
+  namespace: web-preview
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  rules:
+    - host: pr-21.preview.kolchurin.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: front-end-preview
+                port:
+                  number: 3000

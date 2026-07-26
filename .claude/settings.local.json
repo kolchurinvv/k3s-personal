@@ -10,7 +10,16 @@
       "Bash(command -v nu)",
       "Bash(nu --version)",
       "Bash(grep -nEi 'better-auth-secret-val=|password|BEGIN |[A-Za-z0-9+/]{40,}={0,2}' infra/tools-prod/icp.yaml)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(kubectl config *)",
+      "Bash(kubectl -n tools-prod get pvc,pod -o wide)",
+      "Bash(kubectl get *)",
+      "Read(//home/_liminor/Dev_Projects/**)",
+      "Bash(kubectl -n tools-prod logs -l app=icp --tail=60)",
+      "WebSearch",
+      "WebFetch(domain:dozzle.dev)",
+      "Bash(gh repo *)",
+      "Bash(grep -nE \"^#{1,4} |Phase [0-9]|✅|☑|\\\\[x\\\\]|\\\\[ \\\\]|DONE|TODO|WIP|in progress|complete\" docs/migration-plan.md)"
     ]
   }
 }

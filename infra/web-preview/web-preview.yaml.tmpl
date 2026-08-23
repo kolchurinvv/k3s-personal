@@ -1,28 +1,33 @@
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: web-preview
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web-preview
+  name: pr-preview-${PR}
   namespace: web-preview
-  labels: { app: front-end-preview }
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/instance: pr-${PR}
+    app.kubernetes.io/component: web
+    app.kubernetes.io/managed-by: manual
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: front-end-preview }
+    matchLabels:
+      app.kubernetes.io/name: frontend
+      app.kubernetes.io/instance: pr-${PR}
   template:
     metadata:
-      labels: { app: front-end-preview }
+      labels:
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/instance: pr-${PR}
+        app.kubernetes.io/component: web
+        app.kubernetes.io/managed-by: manual
     spec:
       imagePullSecrets:
         - name: ghcr-pull
       containers:
-        - name: front-end-preview
-          image: ghcr.io/kolchurinvv/kolchurin.dev/frontend:preview-ai-feat-bento-dragon-warning
+        - name: pr-preview-${PR}
+          image: ${FRONTEND_IMAGE}
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
@@ -42,10 +47,17 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: front-end-preview
+  name: pr-preview-${PR}
   namespace: web-preview
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/instance: pr-${PR}
+    app.kubernetes.io/component: web
+    app.kubernetes.io/managed-by: manual
 spec:
-  selector: { app: front-end-preview }
+  selector:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/instance: pr-${PR}
   ports:
     - name: http
       port: 3000
@@ -54,20 +66,25 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: web-preview
+  name: pr-preview-${PR}
   namespace: web-preview
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/instance: pr-${PR}
+    app.kubernetes.io/component: web
+    app.kubernetes.io/managed-by: manual
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   rules:
-    - host: pr-21.preview.kolchurin.dev
+    - host: pr-${PR}.preview.kolchurin.dev
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: front-end-preview
+                name: pr-preview-${PR}
                 port:
                   number: 3000

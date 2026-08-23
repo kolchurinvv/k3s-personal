@@ -82,6 +82,7 @@ infra/
   traefik/          Traefik ingress via Helm — hostNetwork, pinned to the public node
   cert-manager/     cert-manager + Let's Encrypt DNS-01 ClusterIssuer + wildcard cert
   web-prod/         kolchurin.dev SvelteKit SSR frontend (Deployment/Service/Ingress)
+  web-preview/      Per-PR preview envs — long-lived namespace + envsubst template
   tools-prod/       Internal tools app — stateful, local-path PVC, secret refs
 docs/
   migration-plan.md      The full phased plan + decision log (the heart of the project)
@@ -93,6 +94,20 @@ flake.nix             Nix dev shell — pinned helm/k9s/cmctl/restic/openbao/tal
 Manifests are committed per phase. Secrets are **never** in git — they're created
 imperatively and referenced by name (see `.gitignore` and the header comments in each
 manifest explaining exactly which Secret backs it).
+
+PR previews are the one exception to "a manifest per app": rather than a committed
+manifest per pull request, `infra/web-preview/web-preview.yaml.tmpl` is rendered on the
+fly, so a preview is repeatable instead of hand-edited:
+
+```bash
+PR=21 FRONTEND_IMAGE=ghcr.io/…/frontend:preview-… \
+  envsubst < infra/web-preview/web-preview.yaml.tmpl | kubectl apply -f -
+```
+
+Every object is named `pr-preview-$PR` and served at `pr-$PR.preview.kolchurin.dev`, so
+concurrent previews don't collide. The namespace sits in `00-namespace.yaml` and is
+applied once — it outlives any individual preview, so tearing one down deletes only that
+PR's rendered objects.
 
 ---
 
@@ -145,7 +160,7 @@ sequenced deliberately as a learning progression:
 |---|---|---|
 | 0–5 | Preflight, Headscale mesh, k3s bootstrap | ✅ Done |
 | 6 | Traefik ingress + cert-manager wildcard TLS | ✅ Done |
-| 7 | SvelteKit frontend + PR preview environments | ✅ Done (previews WIP) |
+| 7 | SvelteKit frontend + PR preview environments | ✅ Done (previews templated, CI wiring WIP) |
 | 8 | LiteLLM + OpenWebUI (self-hosted LLM gateway) | ⬜ Planned |
 | 9 | Monitoring — kube-prometheus-stack + Uptime Kuma | ⬜ Planned |
 | 10 | Pi-hole into the cluster as DNS authority | ⬜ Planned |
@@ -165,7 +180,7 @@ The repo ships a Nix flake that pins the exact toolchain and isolates `KUBECONFI
 lab cluster so work clusters are never touched:
 
 ```bash
-nix develop   # helm, k9s, kubectx, cmctl, restic, openbao, talosctl, dig, …
+nix develop   # helm, k9s, kubectx, cmctl, restic, openbao, talosctl, envsubst, dig, …
 ```
 
 ---

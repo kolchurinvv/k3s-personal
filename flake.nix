@@ -17,6 +17,7 @@
         # ethtool, podman; jq/curl/wget/yaml all covered by nushell.
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
+            gettext # template substitution
             # --- Cluster ops (current) ---
             kubernetes-helm   # helm — the reason for this update
             k9s               # cluster TUI (ops + learning)

@@ -1,0 +1,95 @@
+# DRAFT — not deployed. Kept as the planned A/B comparison and backup channel
+# for tix-watch alerts next to Bark (see docs/migration-plan.md). Not yet valid:
+# review before applying.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personal-servises
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-path-pvc
+  namespace: personal-servises
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi
+---
+vapiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ntfy
+spec:
+  selector:
+    matchLabels:
+      app: ntfy
+  template:
+    metadata:
+      labels:
+        app: ntfy
+    spec:
+      containers:
+      - name: ntfy
+        image: binwiederhier/ntfy
+        args: ["serve"]
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+          name: http
+        volumeMounts:
+        - name: config
+          mountPath: "/etc/ntfy"
+          readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: ntfy
+---
+kind: Service
+metadata:
+  name: ntfy-server
+  namespace: personal-servises
+spec:
+  selector: { app: ntfy-server }
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ntfy
+data:
+  server.yml:
+    base-url: https://ntfy.kolchurin.dev
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ntfy-server
+  namespace: personal-servises
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  rules:
+    - host: ntfy.kolchurin.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ntfy-server
+                port:
+                  number: 80

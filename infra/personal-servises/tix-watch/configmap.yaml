@@ -1,0 +1,48 @@
+# Non-secret settings. Every value here can be changed and rolled out with
+# `kubectl rollout restart deploy/tix-watch -n personal-servises` — no image rebuild.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tix-watch
+  namespace: personal-servises
+data:
+  # --- what to watch -------------------------------------------------------
+  # 1052 = Praha Flora (the only Prague cinema with a 70mm IMAX screen).
+  TIXWATCH_CINEMA_IDS: "1052"
+  # Odyssea. Blank this out to watch every 70mm screening at the cinema.
+  TIXWATCH_FILM_ID: "7268s2r"
+  # Matches the `filtered=70-mm` filter in the cinema's own URL.
+  TIXWATCH_ATTR: "70-mm"
+  TIXWATCH_DAYS_AHEAD: "21"
+
+  # --- what counts as a good seat ------------------------------------------
+  TIXWATCH_SEATS: "2"
+  TIXWATCH_ROW_MIN: "7"
+  TIXWATCH_ROW_MAX: "10"
+  # Max distance from the row's centre, as a fraction of the row width.
+  # 0.25 is "balanced"; lower is stricter, 1 accepts any adjacent pair.
+  TIXWATCH_CENTRALITY: "0.25"
+
+  # --- how often -----------------------------------------------------------
+  TIXWATCH_POLL_INTERVAL: "5m"
+  TIXWATCH_TZ: "Europe/Prague"
+  TIXWATCH_LOG_LEVEL: "info"
+  TIXWATCH_STATE_FILE: "/data/state.json"
+
+  # --- delivery ------------------------------------------------------------
+  # ntfy and Bark run side by side so they can be compared. At least one of
+  # them (or Telegram) must be set, or the pod exits at startup with a clear
+  # error rather than starting up silently undeliverable.
+  #
+  # REQUIRED. ntfy topics are public and need no account: the topic name is the
+  # only thing keeping strangers out, so make it long and random. Generate one
+  # with `just ntfy-topic`. Deliberately blank — a working placeholder here
+  # would publish to a topic whose name is in this repo.
+  TIXWATCH_NTFY_URL: ""
+  TIXWATCH_NTFY_PRIORITY: "high"
+  TIXWATCH_BARK_SERVER: "https://bark.kolchurin.dev"
+  TIXWATCH_BARK_SOUND: "bell"
+  TIXWATCH_BARK_GROUP: "tix-watch"
+  TIXWATCH_BARK_LEVEL: "timeSensitive"
+  # Telegram is the gated backup. Flip to "true" and fill in the Secret.
+  TIXWATCH_TELEGRAM_ENABLED: "false"

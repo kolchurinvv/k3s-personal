@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tix-watch
+  namespace: personal-servises
+  labels:
+    app.kubernetes.io/name: tix-watch
+spec:
+  replicas: 1
+  # Two pollers would both alert on the same seats, so the old pod must go away
+  # before the new one starts. (A rolling update of a single replica overlaps.)
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tix-watch
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tix-watch
+    spec:
+      # Uncomment if the GHCR package is private. Leave it commented for a
+      # public package: a reference to a missing Secret makes kubelet log a
+      # warning event on every pull attempt.
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # emptyDir is root-owned by default; fsGroup makes /data writable for
+        # the unprivileged user, which matters with a read-only root filesystem.
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tix-watch
+          image: ghcr.io/kolchurinvv/tix-watch:latest
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: tix-watch
+            - secretRef:
+                name: tix-watch
+          env:
+            - name: TIXWATCH_BARK_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: bark-device-token-list
+                  key: device-tokens
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: state
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            # The first poll takes a few seconds; do not flap before it lands.
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              # The seat plan is ~190 KB of JSON held in memory; this is ample.
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        # state.json is a dedup cache, not durable data: it stops a screening
+        # that stays available from re-alerting every poll. Losing it costs at
+        # most a few repeat notifications, capped by the per-cycle alert budget,
+        # so it does not justify a PVC — which under k3s local-path would also
+        # pin this pod to a single node.
+        #
+        # emptyDir survives container restarts (liveness kills, OOM), which are
+        # the common case; a reschedule starts fresh and re-alerts whatever is
+        # still available.
+        - name: state
+          emptyDir:
+            sizeLimit: 16Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tix-watch
+  namespace: personal-servises
+  labels:
+    app.kubernetes.io/name: tix-watch
+spec:
+  selector:
+    app.kubernetes.io/name: tix-watch
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

@@ -1,0 +1,97 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personal-servises
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-path-pvc
+  namespace: personal-servises
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bark-server
+  namespace: personal-servises
+  labels: { app: bark-server }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: bark-server }
+  template:
+    metadata:
+      labels: { app: bark-server }
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: bark-server
+          image: ghcr.io/finb/bark-server
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 512Mi }
+          readinessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: 8080 }
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          env:
+            - name: BARK_SERVER_DATA_DIR
+              value: "/bark-data"
+          volumeMounts:
+          - name: bark-data
+            mountPath: /bark-data
+      volumes:
+      - name: bark-data
+        persistentVolumeClaim:
+          claimName: 
+            local-path-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bark-server
+  namespace: personal-servises
+spec:
+  selector: { app: bark-server }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bark-server
+  namespace: personal-servises
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  rules:
+    - host: bark.kolchurin.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bark-server
+                port:
+                  number: 8080

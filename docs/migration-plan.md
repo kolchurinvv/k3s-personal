@@ -216,6 +216,25 @@ Later (not gating this phase): retrofit Phase 8's Neon Postgres and Phase 6's Cl
 ### Phase 12 — Modernize RC on hetzner
 12a deploy RC fresh (pin hetzner, point at in-cluster Mongo, **restore the dump from Phase 5 backup** → preserves configs/users/SlackBridge/history). 12b seat-limit fix (guest-role check → matterbridge fallback). 12c WhatsApp Business Cloud App (Meta-side setup is the bulk). 12d LiveKit video replacing Jitsi. 12e decommission — RC already off ovh-s0 since the reinstall, so this is just verifying the hetzner deployment is solid. Set k8s mem limits on RC/Mongo.
 
+### Phase 13 — Resilience: portable app state + chaos drills (added 2026-09-15)
+**Goal:** any single pod, node, or dependency can break on its own, and the system as a whole self-heals or degrades gracefully. **Why now:** the personal services exposed accidental pinning. Bark's local-path volume was created on whichever node the scheduler picked first (hetzner-s0), and its PV is now bound to that node, so if hetzner-s0 is down Bark stays Pending. tix-watch's `emptyDir` can move, but it loses its state. Nothing in the manifests made either of those a decision.
+
+Two routes, to be chosen per app (they can be mixed):
+- **A. Stateless apps, state in a shared database.** Uses the databases already on the roadmap (Neon Postgres in Phase 4/8, MongoDB in Phase 11).
+  - **ntfy:** PostgreSQL via `database-url` / `NTFY_DATABASE_URL` (message cache, users, access control). Setting it implicitly turns on auth/access control, so plan for that.
+  - **Bark:** external DB is **MySQL only** (`BARK_SERVER_DSN`), with no Postgres or MongoDB support. That means either a small MySQL/MariaDB instance or route B.
+  - **tix-watch:** our own code, so add a Postgres state backend, or decide the dedup cache may be lost (current design) and document that as graceful degradation.
+  - **Caveat:** this moves the single point of failure to the database. Neon's free tier cold-starts after about 5 min idle, and an in-cluster DB needs its own replication and backups.
+- **B. State that can migrate between nodes.** Either replicated storage so PVs aren't node-pinned (e.g. Longhorn; weigh its RAM cost on 2–4 GB nodes), or backup/restore-based recovery (restic→R2 from Phase 11, or Velero) that restores onto a healthy node, where data loss = backup interval.
+
+**Graceful degradation, concretely:** if Bark is down, tix-watch still alerts through ntfy (the A/B and backup channel); if the database is down, apps keep serving what they can and catch up after.
+
+**Chaos drills** (after Phase 9 monitoring exists, so failures are visible): cordon/drain a worker, delete pods, make an external dependency unreachable. Record what broke, what recovered on its own, and how long it took. Tooling such as Chaos Mesh or LitmusChaos comes later; start with manual `kubectl` drills.
+
+**Known single points of failure to include:** ingress is one node (Traefik `hostNetwork` on ovh-s1, DNS points at one IP); the control plane is one node (ovh-s0).
+
+**Depends on:** Phase 9 (observability), Phase 11 (MongoDB, restic→R2, secrets platform).
+
 ---
 
 ## Parked — pending an always-on home-LAN box (decided 2026-06-10, cautious approach)

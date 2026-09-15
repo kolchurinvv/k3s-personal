@@ -174,6 +174,7 @@ progression:
 | 10 | Pi-hole into the cluster as DNS authority | ⬜ Planned |
 | 11 | OpenBao + ESO — static → **dynamic** secrets; Mongo + restic→R2 | ⬜ Planned |
 | 12 | Modernize RocketChat (WhatsApp Business, LiveKit video) | ⬜ Planned |
+| 13 | Resilience — portable or database-backed app state + chaos drills (self-heal, degrade gracefully) | ⬜ Planned |
 
 The static-Secrets-then-OpenBao ordering is intentional: learn the primitive first, then
 graduate to a real dynamic-secrets platform (DB/PKI engines, JIT-leased credentials).

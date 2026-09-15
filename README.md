@@ -84,6 +84,10 @@ infra/
   web-prod/         kolchurin.dev SvelteKit SSR frontend (Deployment/Service/Ingress)
   web-preview/      Per-PR preview envs — long-lived namespace + envsubst template
   tools-prod/       Internal tools app — stateful, local-path PVC, secret refs
+  personal-servises/
+    bark.yaml       Self-hosted Bark push server (bark.kolchurin.dev) — iOS notifications
+    tix-watch/      Cinema seat watcher (Kustomize) — alerts through Bark
+    ntfy.yaml       Draft, not deployed — planned A/B + backup channel next to Bark
 docs/
   migration-plan.md      The full phased plan + decision log (the heart of the project)
   ovh-s1-decommission.md As-built record of the legacy stack being replaced
@@ -145,6 +149,7 @@ A few decisions that show the level this is being done at (the full reasoning li
 **TLS / DNS** Let's Encrypt (ACME DNS-01) · Cloudflare
 **Storage / data** local-path-provisioner · Neon Postgres · MongoDB
 **Backups** restic → Cloudflare R2 (S3-compatible, off-site)
+**Notifications** Bark (self-hosted, iOS push) · ntfy (planned A/B + backup)
 **Tooling** Nix flake dev shell · k9s · kubectx · nushell
 **Roadmap** OpenBao (dynamic secrets) · External Secrets Operator · kube-prometheus-stack · Talos · Pulumi (IaC)
 
@@ -153,14 +158,17 @@ A few decisions that show the level this is being done at (the full reasoning li
 ## Status & roadmap
 
 Live in the cluster today: **ingress + wildcard TLS**, the **`kolchurin.dev` frontend**,
-and a **stateful internal-tools app** (`icp.kolchurin.dev`). The remaining phases are
-sequenced deliberately as a learning progression:
+a **stateful internal-tools app** (`icp.kolchurin.dev`), and **personal services** — a
+self-hosted **Bark** push server (`bark.kolchurin.dev`) and **tix-watch**, which alerts
+two iPhones through it. The remaining phases are sequenced deliberately as a learning
+progression:
 
 | Phase | Focus | State |
 |---|---|---|
 | 0–5 | Preflight, Headscale mesh, k3s bootstrap | ✅ Done |
 | 6 | Traefik ingress + cert-manager wildcard TLS | ✅ Done |
 | 7 | SvelteKit frontend + PR preview environments | ✅ Done (previews templated, CI wiring WIP) |
+| — | Personal services: Bark push server + tix-watch | ✅ Done (ntfy kept as A/B + backup, ⬜ planned) |
 | 8 | LiteLLM + OpenWebUI (self-hosted LLM gateway) | ⬜ Planned |
 | 9 | Monitoring — kube-prometheus-stack + Uptime Kuma | ⬜ Planned |
 | 10 | Pi-hole into the cluster as DNS authority | ⬜ Planned |

@@ -20,7 +20,15 @@ New working agreement from here:
   docs — nothing more.
 - **Done = I can stand up a new front-end app on this cluster end-to-end, unaided.**
 
-## ⏯️ CURRENT STATUS — pick up here (last worked 2026-06-28)
+**Checkpoint 2026-09-15 — progress.** Deployed the Bark push server and tix-watch
+*almost* on my own: wrote `bark.yaml` (Deployment/Service/Ingress/PVC) and the DNS record
+myself, and debugged by isolating layers (port-forward → Service works, `cf-dns list` →
+record exists). Needed the teacher for: DNS negative caching (NXDOMAIN cached because I hit
+the URL before creating the record), and a Go flag's CLI `Name` vs its `EnvVars` name
+(`BARK_SERVER_DATA_DIR`). Remaining gap on tix-watch was a state-file path pointing outside
+its volume on a read-only root filesystem.
+
+## ⏯️ CURRENT STATUS — pick up here (last worked 2026-09-15)
 
 **Done:**
 - **Phase 0** — `webui.db` (159 MB, 109 chats) backed up to `~/backups/`. Pihole config inventoried: 2 adlists (StevenBlack + kboghdady youtube), no custom DNS/CNAMEs; `pihole.toml` saved.
@@ -41,6 +49,12 @@ New working agreement from here:
    - Verify: `kubectl get certificate -A` Ready; `curl https://anything.kolchurin.dev` → Traefik 404 with a valid LE cert.
 
 **ovh-s0 tailnet IP is now 100.64.0.7** (was .6 pre-reinstall) — used in all kubeconfig/k3s flags.
+
+**Personal services — LIVE 2026-09-15** (namespace `personal-servises`, manifests in `infra/personal-servises/`, both pods on hetzner-s0):
+- **Bark** (`bark.yaml`) — self-hosted iOS push server at `https://bark.kolchurin.dev`. Data on a local-path PVC mounted at `/bark-data`, selected with `BARK_SERVER_DATA_DIR` (image default is `/data`). TLS from the wildcard cert via the default TLSStore — no `tls:` block needed.
+- **tix-watch** (`tix-watch/`, Kustomize; app repo `~/Dev_Projects/tix-watch`) — polls Cinema City every 5 min for 70mm IMAX seats and alerts through Bark. State in an `emptyDir` at `/data` (dedup cache, not durable). Device keys come from the imperatively created Secret `bark-device-token-list` (key `device-tokens`, comma-separated), mapped to `TIXWATCH_BARK_KEY` via `env.valueFrom`, which overrides the `envFrom` Secret. `tix-watch/secret.yaml` is gitignored — recreate it locally before `kubectl apply -k`. Verified end-to-end: `kubectl exec deploy/tix-watch -- /tix-watch -test-notify` reached both iPhones (batch `device_keys` push works on the self-hosted server).
+- **Decision — Bark is the primary alert channel; ntfy stays on the roadmap** as an A/B comparison and backup channel. Reason: Bark's delivery felt more reliable for iOS notifications (time-sensitive level gets through Focus). `ntfy.yaml` is a draft, not deployed, and not yet valid.
+- **Loose ends:** namespace name is misspelled and doesn't follow the `<app>-<env>` convention; PVC name `local-path-pvc` is generic (the ntfy draft reuses it); Bark image is unpinned (`ghcr.io/finb/bark-server`, no tag); stale `TIXWATCH_BARK_KEY` in the cluster `tix-watch` Secret until the next `apply -k`.
 
 ---
 

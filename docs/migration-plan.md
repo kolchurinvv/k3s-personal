@@ -60,6 +60,11 @@ its volume on a read-only root filesystem.
 - **hetzner-s0 now runs two Headscale instances.** Next to the cluster's, a second, separate instance (its own config, database and keys) coordinates the raspberry-tunnel tailnet at `https://rt.kolchurin.dev`. That name has its own DNS-only A record → hetzner-s0 (49.13.129.168), because `*.kolchurin.dev` points at ovh-s1. The tunnel's policy uses `grants`, new in Headscale 0.29, which is why the cluster instance was upgraded first (#4).
 - **rt-dash** (`infra/personal-servises/rt.yaml`) — the tunnel's public health page at `https://rt.kolchurin.dev/`. One pod (Recreate, pinned to hetzner-s0, `ghcr.io/kolchurinvv/raspberry-tunnel-dashboard`), with its database and tailnet node state on a 2Gi local-path PVC. It joins the tunnel's Headscale as its own node; `TS_AUTHKEY` comes from the optional `ts-authkey` Secret and is only read for the first login, after which the node state on the PVC keeps it logged in. The proxy in front of that Headscale sends only `/` and `/_dash/` to the dashboard and keeps everything else, `/api/` included. RBAC: ClusterRole `rt-dash-node-metrics` allows only `get` on the hetzner-s0 node and its `metrics.k8s.io` usage, for the page's Headscale CPU and memory gauges. Non-root, read-only root filesystem, all capabilities dropped.
 
+**Secret Krampus — LIVE 2026-11-25** (`infra/secret-krampus/krampus.yaml`, namespace `secret-krampus`; app repo `~/Dev_Projects/secret-krampus`) — Secret Santa, the Krampus gift vote and party contests at `https://secretkrampus.party`. One Bun pod (Recreate, pinned to hetzner-s0) on a single SQLite file on a 1Gi local-path PVC.
+- **First host outside `kolchurin.dev`:** the default TLSStore only serves the kolchurin.dev wildcard, so it has its own cert-manager `Certificate`, and the cert-manager Cloudflare token was extended to the `secretkrampus.party` zone for DNS-01. A record → ovh-s1, DNS-only.
+- Avatars live in the `secret-krampus` R2 bucket behind `img.secretkrampus.party`; email goes through Resend. Secrets `ghcr-pull` + `secret-krampus-env` are created imperatively (commands in the manifest header).
+- Named `krampus.yaml` because `.gitignore` ignores `*secret*.yaml`.
+
 ---
 
 ## Node topology (sized to specs)
@@ -109,7 +114,7 @@ vultr (1 GB) was replaced mid-project by a **Hetzner CX22** (2 vCPU / 4 GB / 40 
 
 ## Prerequisites
 
-- ✅ **Cloudflare API token** (Zone:DNS:Edit on kolchurin.dev) — done, at `~/.config/cloudflare/token`. Reused by cert-manager (Phase 6) + Pulumi (later).
+- ✅ **Cloudflare API token** (Zone:DNS:Edit on kolchurin.dev, extended to secretkrampus.party for Secret Krampus' cert) — done, at `~/.config/cloudflare/token`. Reused by cert-manager (Phase 6) + Pulumi (later).
 - ⬜ **Neon account** (free, no card) — do before Phase 8.
 - ✅ **Cloudflare R2** bucket + R2 API token — DONE (2026-06-10). Bucket `k3s-lab-backups` (Standard storage), account ID `f9e371667244609d910373676cf12011`, S3 endpoint `https://f9e371667244609d910373676cf12011.r2.cloudflarestorage.com`. **Account** API token (not user), scoped *Object Read & Write* to that one bucket, no expiry. Access Key ID + Secret + restic `RESTIC_PASSWORD` (`openssl rand -base64 32`) saved in Bitwarden (3 entries) — NOT in git; separate token from the DNS one. restic repo URL: `s3:https://f9e371667244609d910373676cf12011.r2.cloudflarestorage.com/k3s-lab-backups`.
 - ✅ **GitHub PAT** (`read:packages`) — DONE (2026-06-10). Classic PAT, `read:packages` scope only, saved in Bitwarden with the GitHub username. Becomes a k8s `dockerconfigjson` pull secret in Phase 7 (cluster pulls `ghcr.io/<you>/frontend`).

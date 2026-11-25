@@ -33,6 +33,7 @@
             openssl           # cert inspection (s_client / x509)
             dnsutils          # dig — DNS-01 challenge + Phase 10 DNS
             sqlite            # webui.db inspection
+            just
           ];
 
           shellHook = ''

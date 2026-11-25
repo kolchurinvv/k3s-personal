@@ -1,0 +1,87 @@
+# One Bun process: Hono API + SSE stream + the built Solid SPA, backed by a
+# single SQLite file. Secrets come from `secret-krampus-env` and the image pull
+# secret `ghcr-pull`, both created imperatively (see kustomization.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secret-krampus
+  namespace: secret-krampus
+  labels:
+    app.kubernetes.io/name: secret-krampus
+spec:
+  replicas: 1
+  # SQLite has one writer and the live SSE fan-out is in-process, so exactly
+  # one pod may run; the old one must stop before the new one opens the file.
+  # (A rolling update of a single replica overlaps — and RWO local-path would
+  # block it anyway.)
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: secret-krampus
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: secret-krampus
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: hetzner-s0
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        # The PVC and emptyDir are root-owned by default; fsGroup makes them
+        # writable for the unprivileged user under a read-only root filesystem.
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: secret-krampus
+          image: ghcr.io/kolchurinvv/secret-krampus:latest
+          imagePullPolicy: Always          # :latest is mutable; re-pull on restart
+          envFrom:
+            - configMapRef:
+                name: secret-krampus
+            - secretRef:
+                name: secret-krampus-env
+          ports:
+            - name: http
+              containerPort: 3000
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            # Bun's HOME and any temp files; the root filesystem is read-only.
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 20m
+              memory: 96Mi
+            limits:
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: secret-krampus-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

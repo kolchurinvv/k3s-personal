@@ -1,0 +1,39 @@
+# secret-krampus — Secret Santa / Secret Krampus / party contests at
+# https://secretkrampus.party. App repo: ~/Dev_Projects/secret-krampus
+#
+# Two Secrets back this app and are NOT in git (they hold credentials). Create
+# the namespace first, then both Secrets, then apply the rest:
+#
+#   kubectl apply -f infra/secret-krampus/namespace.yaml
+#
+#   kubectl create secret docker-registry ghcr-pull -n secret-krampus \
+#     --docker-server=ghcr.io --docker-username=kolchurinvv \
+#     --docker-password=<read:packages PAT>
+#
+#   # App credentials. Put the values in a throwaway env file outside git so
+#   # they stay out of shell history, then delete it:
+#   #   BETTER_AUTH_SECRET=<openssl rand -base64 32>
+#   #   RESEND_API_KEY=re_...
+#   #   R2_ACCESS_KEY_ID=<R2 account API token: Access Key ID>
+#   #   R2_SECRET_ACCESS_KEY=<R2 account API token: Secret Access Key>
+#   #   ADMIN_EMAILS=<comma-separated admin emails>
+#   kubectl create secret generic secret-krampus-env -n secret-krampus \
+#     --from-env-file=./secret-krampus.env
+#
+#   kubectl apply -k infra/secret-krampus
+#
+# The ConfigMap and Secret are plain resources, so editing them does not restart
+# the pod on its own. After changing either, run:
+#   kubectl rollout restart deployment/secret-krampus -n secret-krampus
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: secret-krampus
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - certificate.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml

@@ -28,11 +28,11 @@ the URL before creating the record), and a Go flag's CLI `Name` vs its `EnvVars`
 (`BARK_SERVER_DATA_DIR`). Remaining gap on tix-watch was a state-file path pointing outside
 its volume on a read-only root filesystem.
 
-## ⏯️ CURRENT STATUS — pick up here (last worked 2026-09-15)
+## ⏯️ CURRENT STATUS — pick up here (last worked 2026-11-25)
 
 **Done:**
 - **Phase 0** — `webui.db` (159 MB, 109 chats) backed up to `~/backups/`. Pihole config inventoried: 2 adlists (StevenBlack + kboghdady youtube), no custom DNS/CNAMEs; `pihole.toml` saved.
-- **Phase 1** — Headscale live on hetzner at `https://headscale.kolchurin.dev` (v0.28.0, Caddy auto-TLS, user `liminor` = id 1). `/health` returns `{"status":"pass"}`.
+- **Phase 1** — Headscale live on hetzner at `https://headscale.kolchurin.dev` (Caddy auto-TLS, user `liminor` = id 1). `/health` returns `{"status":"pass"}`. Installed as v0.28.0; **upgraded to v0.29.7 in Nov 2026 (#4)** as the first step of the raspberry-tunnel setup — see *Second Headscale* below. Its ACL policy is now versioned in `infra/headscale/policy.hujson` (file mode, installed at `/etc/headscale/policy.hujson`): user-owned nodes stay any-to-any, `tag:ci` (the ephemeral PR-preview runners) reaches only `ovh-s0:6443`, and the policy's `tests` guard the API, kubelet (10250) and flannel VXLAN (udp 8472) paths, so a reload that would break the cluster is rejected.
 - **Phase 2** — All 6 nodes on the mesh (see IP table below).
 - **Phase 3 (interim Pihole DNS) — SKIPPED.** Folded into the cluster-Pihole step.
 - **ovh-s0 hardening** — confirmed the "DDoS" was OOM. Resolved structurally: ovh-s0 reinstalled fresh (Debian 13), RC moved off it entirely.
@@ -56,6 +56,10 @@ its volume on a read-only root filesystem.
 - **Decision — Bark is the primary alert channel; ntfy stays on the roadmap** as an A/B comparison and backup channel. Reason: Bark's delivery felt more reliable for iOS notifications (time-sensitive level gets through Focus). `ntfy.yaml` is a draft, not deployed, and not yet valid.
 - **Loose ends:** namespace name is misspelled and doesn't follow the `<app>-<env>` convention; PVC name `local-path-pvc` is generic (the ntfy draft reuses it); Bark image is unpinned (`ghcr.io/finb/bark-server`, no tag); stale `TIXWATCH_BARK_KEY` in the cluster `tix-watch` Secret until the next `apply -k`.
 
+**Second Headscale + rt dashboard — LIVE 2026-11-13** (#3, #4; the tunnel's config and policy live in the separate raspberry-tunnel repo, not here):
+- **hetzner-s0 now runs two Headscale instances.** Next to the cluster's, a second, separate instance (its own config, database and keys) coordinates the raspberry-tunnel tailnet at `https://rt.kolchurin.dev`. That name has its own DNS-only A record → hetzner-s0 (49.13.129.168), because `*.kolchurin.dev` points at ovh-s1. The tunnel's policy uses `grants`, new in Headscale 0.29, which is why the cluster instance was upgraded first (#4).
+- **rt-dash** (`infra/personal-servises/rt.yaml`) — the tunnel's public health page at `https://rt.kolchurin.dev/`. One pod (Recreate, pinned to hetzner-s0, `ghcr.io/kolchurinvv/raspberry-tunnel-dashboard`), with its database and tailnet node state on a 2Gi local-path PVC. It joins the tunnel's Headscale as its own node; `TS_AUTHKEY` comes from the optional `ts-authkey` Secret and is only read for the first login, after which the node state on the PVC keeps it logged in. The proxy in front of that Headscale sends only `/` and `/_dash/` to the dashboard and keeps everything else, `/api/` included. RBAC: ClusterRole `rt-dash-node-metrics` allows only `get` on the hetzner-s0 node and its `metrics.k8s.io` usage, for the page's Headscale CPU and memory gauges. Non-root, read-only root filesystem, all capabilities dropped.
+
 ---
 
 ## Node topology (sized to specs)
@@ -63,7 +67,7 @@ its volume on a read-only root filesystem.
 | Node | Public IP | Tailnet IP | RAM | Role |
 |---|---|---|---|---|
 | **ovh-s0** | 57.128.218.230 | 100.64.0.7 | 2 GB | k3s **control plane** (tainted, ~512 MB) |
-| **hetzner-s0** | 49.13.129.168 | 100.64.0.3 | 4 GB | worker: **RC + Mongo**, Headscale, Caddy |
+| **hetzner-s0** | 49.13.129.168 | 100.64.0.3 | 4 GB | worker: **RC + Mongo**, Headscale ×2 (cluster + rt), Caddy |
 | **ovh-s1** | 135.125.237.68 | 100.64.0.5 | 4 GB | worker: LLM, OpenWebUI, frontend, Pihole, monitoring |
 | laptop (nixos) | — | 100.64.0.1 | — | admin / kubectl |
 | iphone | — | 100.64.0.2 | — | mesh client |
@@ -99,6 +103,7 @@ vultr (1 GB) was replaced mid-project by a **Hetzner CX22** (2 vCPU / 4 GB / 40 
 - **Pihole stays, moves into the cluster** as the universal DNS authority (Phase 10). Interim: no tailnet DNS (user accepts no ad-blocking until then).
 - **IaC (Terraform/Pulumi): learn it as a greenfield block right after Phase 6 — pulled forward, NOT deferred to Talos** (decided 2026-06-13). User wants reproducible cluster stand-up for future projects (e.g. a CMS + Resend + Twilio stack). Split clarified during teaching: *app* reproducibility = Helm/manifests/GitOps (the workload-layer skill being learned now in Phase 6); *cluster/infra* reproducibility = IaC (provisioning layer). Guardrails: don't retrofit IaC onto the existing hand-built cluster (throwaway work) and don't run two unfamiliar declarative systems in parallel — so finish Phase 6 first, *then* provision a **throwaway cluster from zero on Hetzner Cloud** (first-class TF/Pulumi provider; already a Hetzner user) as a focused IaC learning exercise on a clean canvas. The real production IaC codification still lands at the Phase 2 Talos rebuild (Cloudflare + Hetzner + k8s in one program — a CV story). The hand-written `cf.nu` API calls map 1:1 onto future `cloudflare.Record` resources.
 - **Only `webui.db` + RC's Mongo are worth preserving.** Everything else rebuilds fresh.
+- **raspberry-tunnel gets a second Headscale on hetzner-s0, not a place on the cluster tailnet and not its own VPS** (#3, Nov 2026). Joining its devices to the cluster's tailnet would put them in one network with the cluster nodes under one policy. A separate instance means the two sides can't see each other at all, the tunnel keeps its own tested policy, and restarting or upgrading one doesn't touch the other. Cost: hetzner-s0's maintenance (k3s upgrades, reboots, the Phase 13 drills) also takes the tunnel's coordination server down; devices already connected directly keep working.
 
 ---
 
@@ -120,7 +125,7 @@ Each phase: **Goal / Why / Steps / Verify**. Proven commands from this session a
 Backed up `webui.db`; inventoried Pihole (2 adlists, no custom DNS).
 
 ### ✅ Phase 1 — Headscale on hetzner — DONE
-Headscale v0.28.0 + Caddy auto-TLS at `headscale.kolchurin.dev`. Caddyfile is *only* the site block (no `:80` wrapper, no nesting):
+Headscale v0.28.0 (upgraded to v0.29.7 in Nov 2026, #4) + Caddy auto-TLS at `headscale.kolchurin.dev`. Caddyfile is *only* the site block (no `:80` wrapper, no nesting):
 ```
 headscale.kolchurin.dev { reverse_proxy 127.0.0.1:8080 }
 ```
@@ -245,7 +250,7 @@ Rejected: putting Tailscale on the UniFi Express gateway (firmware updates wipe 
 Box requirements when buying: wired ethernet on the workstation's LAN segment, low idle power, Linux + Tailscale (arm64 or x86). An **N100 mini-PC** is the stretch pick — x86 headroom means it could later also join the k3s cluster as a 4th (home) node. Nixos side: enable WoL on the NIC (`networking.interfaces.<if>.wakeOnLan.enable = true;` + confirm BIOS/UEFI WoL on, wired). No action until the box exists.
 
 ## Post-Phase-1 (later, not now)
-- Tailscale SSH ACLs → drop public port 22 on all nodes (write the Headscale policy with `ssh` rules).
+- Tailscale SSH ACLs → drop public port 22 on all nodes (add `ssh` rules to the Headscale policy, `infra/headscale/policy.hujson`).
 - **Talos transition** (the Phase-2 CV goal) — likely relocate control plane to Talos-friendly hetzner then, or Talos-ify ovh-s0 via OVH ISO. Codify everything in **Pulumi**.
 - Replace RC with Matrix only if seat/push pain returns.
 

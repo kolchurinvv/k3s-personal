@@ -84,15 +84,21 @@ infra/
   web-prod/         kolchurin.dev SvelteKit SSR frontend (Deployment/Service/Ingress)
   web-preview/      Per-PR preview envs — long-lived namespace + envsubst template
   tools-prod/       Internal tools app — stateful, local-path PVC, secret refs
+  secret-krampus/
+    krampus.yaml    Secret Krampus party app (secretkrampus.party) — Bun + SQLite, own cert
   personal-servises/
     bark.yaml       Self-hosted Bark push server (bark.kolchurin.dev) — iOS notifications
     tix-watch/      Cinema seat watcher (Kustomize) — alerts through Bark
+    rt.yaml         raspberry-tunnel dashboard (rt.kolchurin.dev) — reads hetzner-s0 metrics
     ntfy.yaml       Draft, not deployed — planned A/B + backup channel next to Bark
+  headscale/
+    policy.hujson   Tailnet ACL policy — CI runners limited to the k8s API, with tests
 docs/
   migration-plan.md      The full phased plan + decision log (the heart of the project)
   ovh-s1-decommission.md As-built record of the legacy stack being replaced
   vps-best-value.md      Research: best-value EU VPS for a k3s/Talos learning cluster
-flake.nix             Nix dev shell — pinned helm/k9s/cmctl/restic/openbao/talosctl
+flake.nix             Nix dev shell — pinned helm/k9s/cmctl/restic/openbao/talosctl/just
+justfile              Operator recipes (nushell) — `just` lists them
 ```
 
 Manifests are committed per phase. Secrets are **never** in git — they're created
@@ -159,9 +165,10 @@ A few decisions that show the level this is being done at (the full reasoning li
 
 Live in the cluster today: **ingress + wildcard TLS**, the **`kolchurin.dev` frontend**,
 a **stateful internal-tools app** (`icp.kolchurin.dev`), and **personal services** — a
-self-hosted **Bark** push server (`bark.kolchurin.dev`) and **tix-watch**, which alerts
-two iPhones through it. The remaining phases are sequenced deliberately as a learning
-progression:
+self-hosted **Bark** push server (`bark.kolchurin.dev`), **tix-watch**, which alerts
+two iPhones through it, and the **raspberry-tunnel dashboard** (`rt.kolchurin.dev`) — plus
+**Secret Krampus** (`secretkrampus.party`), a party app on its own domain and certificate.
+The remaining phases are sequenced deliberately as a learning progression:
 
 | Phase | Focus | State |
 |---|---|---|

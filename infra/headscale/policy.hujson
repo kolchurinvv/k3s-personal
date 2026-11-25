@@ -1,0 +1,40 @@
+  // Cluster tailnet policy (Headscale 0.29.7, file mode).
+  // Source of truth lives here; installed at /etc/headscale/policy.hujson.
+  //
+  // With no policy, Headscale allows all traffic. A policy makes it deny-by-default,
+  // so the first ACL keeps today's behaviour for every user-owned node. The only
+  // new restriction is on the CI tag.
+  {
+    "tagOwners": {
+      // GitHub Actions runners join with a tagged, ephemeral preauth key.
+      "tag:ci": ["liminor@"],
+    },
+
+    "hosts": {
+      "nixos":     "100.64.0.1",
+      "hetzner-s0": "100.64.0.3",
+      "ovh-s1":     "100.64.0.5",
+      "ovh-s0":     "100.64.0.7", // k3s control plane
+    },
+
+    "acls": [
+      // Your devices and the k3s nodes: unchanged, anything to anything.
+      { "action": "accept", "src": ["autogroup:member"], "dst": ["*:*"] },
+
+      // CI runners: the Kubernetes API and nothing else.
+      { "action": "accept", "src": ["tag:ci"], "dst": ["ovh-s0:6443"] },
+    ],
+
+    // `policy check` and reloads run these; a failing test rejects the policy.
+    // At boot they only log a warning, so always check before a restart.
+    "tests": [
+      // Workers still reach the API...
+      { "src": "hetzner-s0", "accept": ["ovh-s0:6443"] },
+      { "src": "ovh-s1",     "accept": ["ovh-s0:6443"] },
+      // ...the control plane still reaches the kubelets, and flannel's VXLAN still gets through.
+      { "src": "ovh-s0", "accept": ["hetzner-s0:10250", "ovh-s1:10250"] },
+      { "src": "ovh-s0", "proto": "udp", "accept": ["hetzner-s0:8472", "ovh-s1:8472"] },
+      // Your workstation keeps kubectl and SSH.
+      { "src": "nixos", "accept": ["ovh-s0:6443", "hetzner-s0:22"] },
+    ],
+  }
